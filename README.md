@@ -1,226 +1,183 @@
-# Humanoid TSN Simulation --- Baseline README (Updated)
+# Humanoid TSN Simulation — Baseline + TSN README
 
 ## Overview
 
-This repository defines the **Humanoid TSN Simulation Framework**, an
-environment for evaluating **deterministic Ethernet topologies** for
-next‑generation humanoid robots (Thor/Orin + AURIX safety islands +
-zonal controllers).\
-The framework enables:
+This repository defines the **Humanoid TSN Simulation Framework**, an early-stage environment for evaluating **deterministic Ethernet (TSN) architectures** for next‑generation humanoid robots. These simulations target architectures combining:
 
--   Zonal humanoid networking (1--25 GbE)
--   TSN scheduling (802.1Qbv, Qbu, Qci)
--   Multi‑zone UDP sensor traffic
--   Switch‑to‑Thor deterministic paths
--   Traffic shaping + latency analysis
--   Baseline comparison of flattened vs zonal architectures
+- **Thor/Orin** central compute  
+- **AURIX** safety microcontrollers  
+- **Zonal controllers**  
+- **Deterministic Ethernet paths (1–25 GbE)**  
+- **TSN features** such as 802.1Qbv (Time-Aware Shaper)
 
-This baseline uses:
+Two topologies now exist:
 
--   **OMNeT++ 6.2**
--   **INET Framework** (built inside Docker)
--   A custom **FlatThorInet** topology (Thor → Core → Access → Zones)
+1. **FlatThorInet** — baseline (best-effort Ethernet)  
+2. **FlatThorInetTsn** — TSN-capable (TsnSwitch with gates initially always open)
 
-This README captures the **working baseline**, including verified UDP
-packet flow and end‑to‑end latency extraction.
-
-------------------------------------------------------------------------
+---
 
 ## Repository Structure
-.
-├── configs
-│   ├── schedule_2ms_cycle.yaml
-│   ├── topology_aurix_safety.yaml
-│   ├── topology_flattened_thor.yaml
-│   └── traffic_baseline.yaml
-├── docker
-│   ├── docker-compose.yml
-│   └── Dockerfile.tsn-sim
-├── omnet
-│   ├── flat_thor_inet.ned
-│   ├── omnetpp_flat_thor_inet.ini
-│   ├── results
-│   │   ├── all_vectors.csv
-│   │   ├── endToEndDelay_scalars.txt
-│   │   ├── General-#0.sca
-│   │   ├── General-#0.vci
-│   │   ├── General-#0.vec
-│   │   ├── latency_parsed.csv
-│   │   ├── packetReceived_scalars.txt
-│   │   ├── packetSent_scalars.txt
-│   │   ├── scalars.csv
-│   │   └── scalars_parsed.csv
-│   └── scripts
-│       ├── parse_end_to_end_delay.py
-│       └── parse_scalars.py
-├── omnetpp.ini
-├── prompt.chatgpt
-├── README.md
-└── scripts
-    ├── humanoid_tsn_sim.py
-    ├── run_sim.sh
-    ├── stingray
-    └── sweep_architectures.py
 
+```
+humanoid-tsn-sim/
+├── configs/
+│   ├── topology_flattened_thor.yaml
+│   ├── topology_aurix_safety.yaml
+│   ├── traffic_baseline.yaml
+│   └── schedule_2ms_cycle.yaml
+├── docker/
+│   ├── Dockerfile.tsn-sim
+│   └── docker-compose.yml
+├── omnet/
+│   ├── flat_thor_inet.ned
+│   ├── flat_thor_inet_tsn.ned
+│   ├── omnetpp_flat_thor_inet.ini
+│   └── omnetpp_flat_thor_inet_tsn.ini
+├── results/
+│   ├── baseline/
+│   └── tsn/
+├── scripts/
+│   ├── run_sim.sh
+│   ├── parse_scalars.py
+│   ├── parse_end_to_end_delay.py
+│   ├── humanoid_tsn_sim.py
+│   ├── sweep_architectures.py
+│   └── stingray/
+└── README.md
+```
 
-------------------------------------------------------------------------
+---
 
-## 1. Project Goals (Baseline Milestone)
+# 1. Project Goals
 
-This commit captures the **first full working baseline** of the Humanoid
-TSN Simulation environment.
+The simulation framework is designed to evaluate:
 
-### ✔ Current Achievements
+- Zonal Ethernet architectures for humanoids  
+- Latency & jitter under best-effort vs. TSN (Qbv)  
+- Multi-zone UDP sensor/actuator traffic  
+- Deterministic switch scheduling under 2ms/1ms/500µs cycles  
+- Scaling toward 60+ DOF locomotion workloads  
 
--   Fully containerized OMNeT++ 6.2 + INET build\
--   Clean, validated flattened Thor network topology (`FlatThorInet`)\
--   Successful simulation runtime under Cmdenv\
--   UDP traffic successfully flowing from Thor → Access → Zones\
--   MAC/Channel counters operational\
--   End‑to‑end delay vectors recorded and parsed\
--   Latency parsed into CSV via `parse_end_to_end_delay.py`\
--   Scalar metrics parsed via `parse_scalars.py`
+### Current Achievements
+- ✔ Fully containerized OMNeT++ 6.2 + INET build  
+- ✔ Baseline network: `FlatThorInet`  
+- ✔ TSN network: `FlatThorInetTsn` (TsnSwitch inserted)  
+- ✔ UDP packet generation fixed (thor → zone)  
+- ✔ End-to-end delay exported for both baseline & TSN  
+- ✔ Channel stats, throughput, drops, utilization exported  
+- ✔ NED + INI fully validated under Docker  
 
-### ❗ Current Limitations
+### Current Limitations
+- TSN gates are present but **configured “always open”**  
+- No real Qbv schedule applied yet  
+- YAML → INI mapping not integrated  
+- No multi-priority queues or shaping yet  
 
--   TSN (Qbv/Qci/Qbu) not yet enabled\
--   YAML schedule files not yet mapped to switch configuration\
--   Only best‑effort (non‑TSN) baseline currently captured
+---
 
-This README documents the validated baseline before enabling TSN.
+# 2. Build Environment (Docker)
 
-------------------------------------------------------------------------
+Build container:
 
-## 2. Build Environment (Docker)
-
-The simulation is entirely containerized and reproducible.
-
-### Build:
-
-``` bash
+```bash
 docker compose -f docker/docker-compose.yml build
 ```
 
-### Start an interactive session:
+Run OMNeT++ environment:
 
-``` bash
+```bash
 docker compose -f docker/docker-compose.yml run --rm tsn-sim
 ```
 
-You will enter the OMNeT++ environment:
+---
 
-    (omnetpp/.venv) omnetpp-:/workspace$
+# 3. Running Simulations
 
-------------------------------------------------------------------------
-
-## 3. Running the Simulation
-
-Execute:
-
-``` bash
-opp_run -u Cmdenv   -n "/root/inet/src:/workspace"   -l INET   omnet/omnetpp_flat_thor_inet.ini
+## Baseline (best-effort Ethernet)
+```bash
+opp_run -u Cmdenv -n "/root/inet/src:/workspace" -l INET omnet/omnetpp_flat_thor_inet.ini
 ```
 
-A successful baseline run ends with output like:
-
-    Simulation time limit reached -- at t=0.5s
-    End.
-
-Results appear in:
-
-    omnet/results/
-
-------------------------------------------------------------------------
-
-## 4. Inspecting Output
-
-### Export vectors:
-
-``` bash
-opp_scavetool x -F CSV-R   -o omnet/results/all_vectors.csv   omnet/results/General-#0.vec
+## TSN (TsnSwitch)
+```bash
+opp_run -u Cmdenv -n "/root/inet/src:/workspace" -l INET omnet/omnetpp_flat_thor_inet_tsn.ini
 ```
 
-### Export scalars:
+---
 
-``` bash
-python3 scripts/parse_scalars.py   omnet/results/General-#0.sca   omnet/results/scalars_parsed.csv
+# 4. Parsing Results
+
+### Scalars → CSV
+```bash
+python3 omnet/scripts/parse_scalars.py omnet/results/baseline/General-#0.sca omnet/results/baseline/scalars_parsed.csv
 ```
 
-### Extract end‑to‑end latency:
-
-``` bash
-python3 omnet/scripts/parse_end_to_end_delay.py   omnet/results/General-#0.vec   omnet/results/latency_parsed.csv
+### Latency → CSV
+```bash
+python3 omnet/scripts/parse_end_to_end_delay.py omnet/results/baseline/General-#0.vec omnet/results/baseline/latency_parsed.csv
 ```
 
-Example parsed latency:
+Same for `results/tsn/`.
 
-    FlatThorInet.zone[0].app[0],endToEndDelay:vector,84.0,0.00102
-    FlatThorInet.zone[0].app[0],endToEndDelay:vector,110.0,0.00201
-    ...
+---
 
-Latency increases \~1--19 ms over a 0.5 s run in best‑effort Ethernet.
+# 5. Current Observations
 
-------------------------------------------------------------------------
+Both baseline and TSN-open‑gate runs show:
 
-## 5. Project Status + Next Steps
+- ~401 packets delivered  
+- Throughput ~4.5 Mb/s  
+- End‑to‑end delay grows 1 ms → ~19 ms  
+- TSN (with open gates) matches best‑effort behavior exactly  
 
-### Immediate next steps
+This validates correct TSN topology setup.
 
-1.  Bind YAML topology → OMNeT++ auto‑generation\
-2.  Bind YAML traffic → OMNeT++ app config\
-3.  Bind YAML schedule → Qbv gate control list\
-4.  Add TSN‑capable switches (`TsnSwitch`)\
-5.  Generate TSN vs best‑effort comparative metrics
+---
 
-### Medium‑term
+# 6. TSN Model Status
 
--   Add realistic multimodal humanoid traffic (IMU, F/T, joint
-    encoders)\
--   Introduce HSB (Holoscan Bridge) GPU node\
--   Multi‑GbE scaling tests
+- `TsnSwitch` inserted in core and access layers  
+- Egress gate control enabled  
+- Bitrates explicitly set  
+- No schedule yet (Qbv not applied)
 
-### Long‑term
+Ready for gate‑timing insertion.
 
--   Multi‑zone TSN deterministic pipelines\
--   Architecture sweeps for 60‑DOF humanoids\
--   Complete end‑to‑end latency + jitter envelope generation
+---
 
-------------------------------------------------------------------------
+# 7. Next Steps
 
-## 6. Known Issues
+### Phase A — Introduce Qbv (2 ms cycle)
+- Add gateStates and gateTimes arrays  
+- Apply to `coreSwitch` and `accessSwitch`  
+- Validate shaping
 
-  Component        Status   Notes
-  ---------------- -------- -----------------
-  Docker build     ✔        Stable
-  Topology load    ✔        Valid syntax
-  UDP traffic      ✔        Packets flowing
-  MAC counters     ✔        Operational
-  Latency export   ✔        Working
-  TSN features     ⏳       Pending
+### Phase B — YAML → INI generator
 
-------------------------------------------------------------------------
+### Phase C — Scaling to humanoid workloads  
+- Multi-zone  
+- Mixed flows  
+- Latency bands
 
-## 7. Maintainer
+---
 
-This project is part of **Stingray** humanoid architecture R&D.\
-For design, debugging, and modeling assistance:\
-**ChatGPT (Stingray Mode)** collaborates directly within this workflow.
+# 8. Stingray Mode Continuation Prompt
 
-------------------------------------------------------------------------
+```
+You are now in ChatGPT Stingray Mode. Resume the “Humanoid TSN Simulation” project.
 
-## 8. Stingray Mode Continuation Prompt
-
-You are now in ChatGPT Stingray Mode. Resume the "Humanoid TSN
-Simulation" project.
-
-Project state: - OMNeT++ 6.2 + INET built inside Docker. - FlatThorInet
-topology loads and runs cleanly. - UDP traffic operational. - MAC
-counters + latency metrics validated. - YAML interface exists but is not
-yet connected.
-
-Next tasks: 1. Bind YAML → NED/INI generation. 2. Implement TSN (Qbv)
-switch variant. 3. Enable schedule import & deterministic windowing. 4.
-Export latency/queueing metrics under TSN. 5. Maintain Stingray‑style
-modular organization.
+Project state:
+- Baseline and TSN networks both working.
+- UDP + latency recording validated.
+- TSN gates active but always-open.
+- Next step: introduce 2 ms Qbv schedule and YAML→INI mapping.
 
 Continue from this exact state.
+```
+
+---
+
+# 9. Maintainer
+
+This project is part of the **Stingray Humanoid Networking Architecture** research effort.
