@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Wrapper so `stingray` behaves like a proper CLI without Python packaging yet.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY="${PYTHON:-python3}"
+
+exec "$PY" "$SCRIPT_DIR/humanoid_tsn_sim.py" "$@"
+

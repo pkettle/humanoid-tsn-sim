@@ -1,0 +1,44 @@
+FROM ghcr.io/omnetpp/omnetpp:u24.04-6.2.0
+
+# Use bash so we can "source" setenv
+SHELL ["/bin/bash", "-lc"]
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Workspace where your repo is mounted
+WORKDIR /workspace
+
+# Basic tools + git + Python
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        python3 \
+        python3-pip \
+        git \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install PyYAML into OMNeT++'s own virtualenv (for humanoid_tsn_sim.py)
+RUN /root/omnetpp/.venv/bin/python -m pip install --no-cache-dir pyyaml
+
+# ----------------------------------------------------------------------
+# INET framework checkout + build
+# ----------------------------------------------------------------------
+# Important: we must source OMNeT++'s setenv so opp_makemake, opp_featuretool, etc. are in PATH.
+RUN source /root/omnetpp/setenv && \
+    cd /root && \
+    git clone --depth 1 https://github.com/inet-framework/inet.git && \
+    cd inet && \
+    make makefiles && \
+    make MODE=release -j"$(nproc)"
+
+# Make INET paths available at runtime
+ENV INET_ROOT=/root/inet
+ENV NEDPATH=/root/inet/src
+ENV LD_LIBRARY_PATH=/root/inet/out/clang-release/src:${LD_LIBRARY_PATH}
+
+# At runtime we'll use:
+#   NED path: /root/inet/src
+#   Shared lib: /root/inet/src/INET
+
+USER root
+

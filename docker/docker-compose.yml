@@ -1,0 +1,12 @@
+version: "3.9"
+services:
+  tsn-sim:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.tsn-sim
+    volumes:
+      - ../omnetpp.ini:/workspace/omnetpp.ini
+      - ../omnet:/workspace/omnet
+      - ../configs:/workspace/configs
+      - ../scripts:/workspace/scripts
+    command: ["bash"]
