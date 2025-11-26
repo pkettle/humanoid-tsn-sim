@@ -200,3 +200,23 @@ This is the starting point for debugging traffic injection.
 This project is part of the **Stingray** humanoid control & networking architecture research.  
 For design, debugging, and architecture modeling assistance:  
 **ChatGPT (Stingray Mode)** is integrated into this workflow.
+
+# 8.7 Stingray Mode Continuation Prompt
+
+You are now in ChatGPT Stingray Mode. Resume the “Humanoid TSN Simulation” project.
+
+Project state:
+- OMNeT++ 6.2 + INET built inside Docker.
+- FlatThorInet topology loads and runs.
+- 465 vectors exported but UdpBasicApp sends no packets.
+- Need to fix UDP generation and validate MAC counters.
+- YAML front-end (topology/traffic/schedule) exists but not yet mapped into OMNeT++.
+
+Next tasks:
+1. Diagnose and repair UdpBasicApp configuration.
+2. Produce working end-to-end traffic through FlatThorInet.
+3. Export latency and queueing metrics.
+4. Prepare migration path to TSN (802.1Qbv) switch + YAML schedule.
+5. Maintain all configs in Stingray Mode coding style.
+
+Continue from this exact state.

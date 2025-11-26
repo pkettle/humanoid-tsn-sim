@@ -2,55 +2,55 @@ package omnet;
 
 import inet.node.inet.StandardHost;
 import inet.node.ethernet.EthernetSwitch;
+import inet.networklayer.configurator.ipv4.Ipv4NetworkConfigurator;
 
-// Local 1 Gbit/s Ethernet channel
+// Simple 1 Gbps Ethernet channel
 channel Eth1G extends ned.DatarateChannel
 {
     datarate = 1Gbps;
-    delay = 0.1us;   // pick something small and sane
+    delay    = 0.5us;
 }
 
 network FlatThorInet
 {
-    @display("bgb=600,300");
+    parameters:
+        int numZones = default(2);  // number of humanoid zones
 
     submodules:
+        configurator: Ipv4NetworkConfigurator {
+            parameters:
+                @display("p=100,50");
+        }
+
         thor: StandardHost {
-            @display("p=100,150;i=device/pc2");
+            parameters:
+                @display("p=100,200;i=device/server");
         }
 
-        core0: EthernetSwitch {
-            @display("p=250,150;i=device/switch");
+        coreSwitch: EthernetSwitch {
+            parameters:
+                @display("p=250,200;i=device/switch");
         }
 
-        access0: EthernetSwitch {
-            @display("p=400,70;i=device/switch");
-        }
-        access1: EthernetSwitch {
-            @display("p=400,150;i=device/switch");
-        }
-        access2: EthernetSwitch {
-            @display("p=400,230;i=device/switch");
+        accessSwitch: EthernetSwitch {
+            parameters:
+                @display("p=400,200;i=device/switch");
         }
 
-        zone0: StandardHost {
-            @display("p=550,70;i=device/pc2");
-        }
-        zone1: StandardHost {
-            @display("p=550,150;i=device/pc2");
-        }
-        zone2: StandardHost {
-            @display("p=550,230;i=device/pc2");
+        zone[numZones]: StandardHost {
+            parameters:
+                @display("p=600,120,row,120;i=device/pc");
         }
 
-    connections:
-        thor.ethg[0] <--> Eth1G <--> core0.ethg[0];
+    connections allowunconnected:
+        // Thor to core switch
+        thor.ethg++ <--> Eth1G <--> coreSwitch.ethg++;
 
-        core0.ethg[1] <--> Eth1G <--> access0.ethg[0];
-        core0.ethg[2] <--> Eth1G <--> access1.ethg[0];
-        core0.ethg[3] <--> Eth1G <--> access2.ethg[0];
+        // Core to access switch
+        coreSwitch.ethg++ <--> Eth1G <--> accessSwitch.ethg++;
 
-        access0.ethg[1] <--> Eth1G <--> zone0.ethg[0];
-        access1.ethg[1] <--> Eth1G <--> zone1.ethg[0];
-        access2.ethg[1] <--> Eth1G <--> zone2.ethg[0];
+        // Access switch to each zone
+        for i = 0..numZones-1 {
+            zone[i].ethg++ <--> Eth1G <--> accessSwitch.ethg++;
+        }
 }
