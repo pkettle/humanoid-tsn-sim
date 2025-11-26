@@ -1,0 +1,127 @@
+# ======================================================================
+# Global ignores
+# ======================================================================
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# ======================================================================
+# Python
+# ======================================================================
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+env/
+pip-log.txt
+
+# virtualenvs created by OMNeT++ inside container
+/root/omnetpp/.venv/
+
+# ======================================================================
+# OMNeT++ / INET build artifacts
+# ======================================================================
+
+# OMNeT++ auto-generated files
+out/
+*.oppmsg
+opp_makemake
+Makefile
+Makefile.inc
+*.o
+*.lo
+*.d
+*.a
+*.so
+*.dll
+*.lib
+
+# NED folders auto-generated
+**/src/nedfiles
+**/nedfolders
+
+# INET build dirs (if built inside repo accidentally)
+inet/
+inet64/
+inet-release/
+inet-debug/
+inet-out/
+
+# ======================================================================
+# Simulation output
+# ======================================================================
+
+# OMNeT++ results
+results/**/*
+!results/.gitkeep
+
+# Vector, scalar, eventlog files
+*.vec
+*.vci
+*.vci2
+*.sca
+*.elog
+*.log
+*.csv
+
+# Temporary scave exports
+*.sqlite
+
+# Simulation checkpoints
+*.checkpoint
+
+# ======================================================================
+# Docker
+# ======================================================================
+
+# Docker volumes and local workspace mounts
+/workspace/*
+!/workspace/README.md
+!/workspace/omnetpp.ini
+!/workspace/omnet/
+
+# Docker build caches
+**/.docker/
+**/.docker-cache/
+docker/*.log
+
+# ======================================================================
+# Generated Files (Project Artifacts)
+# ======================================================================
+
+# Auto-generated super prompts or transfers
+prompt.chatgpt
+
+# Reports
+*.pdf
+*.docx
+*.pptx
+
+# Temporary scratch
+scratch/
+tmp/
+temp/
+
+# ======================================================================
+# Logs
+# ======================================================================
+
+*.log
+logs/
+*.trace
+
+# ======================================================================
+# Permitted marker files
+# ======================================================================
+# allow .gitkeep to keep empty dirs in repo
+!.gitkeep
