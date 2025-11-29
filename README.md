@@ -123,9 +123,9 @@ python omnet/scripts/tsn_unified_report.py \
 ## 4. Visualizations
 ```mermaid
 graph TD
-   A[Thor UDP App] -->|CONTROL (PCP 7)| C0[Class 0 - Qbv]
-   A -->|SENSOR (PCP 4)| C1[Class 1 - Qav]
-   A -->|TELEM (PCP 1)| C2[Class 2 - BE]
+   A[Thor UDP App] -->|CONTROL PCP 7| C0[Class 0 - Qbv]
+   A -->|SENSOR PCP 4| C1[Class 1 - Qav]
+   A -->|TELEM PCP 1| C2[Class 2 - BE]
    C0 --> Z0[Zone0 Sink]
    C1 --> Z1[Zone1 Sink]
    C2 --> Z2[Zone1 Sink]
