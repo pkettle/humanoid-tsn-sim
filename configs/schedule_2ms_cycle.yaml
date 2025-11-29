@@ -1,1 +1,33 @@
-tsn_schedule: {}
+# 2 ms Qbv cycle with 3 traffic classes:
+#   - CONTROL (class 0): Qbv-gated
+#   - SENSOR  (class 1): Qav (CBS) + always-open gate
+#   - TELEMETRY (class 2): best effort, always-open gate
+
+cycle: 2ms
+
+classes:
+  control:
+    traffic_class: 0
+    pcp: 0
+    qbv:
+      offset: 0ms
+      durations: [1ms, 1ms]          # open, closed
+  sensor:
+    traffic_class: 1
+    pcp: 4
+    qav:
+      idleSlope: 60Mbps              # reserved bandwidth
+      # Future: expose these if you want to override INET defaults
+      # sendSlope: -940Mbps
+      # hiCredit:  15000
+      # loCredit: -15000
+    qbv:
+      offset: 0ms
+      durations: [2ms, 0s]           # always open over the 2 ms cycle
+  telemetry:
+    traffic_class: 2
+    pcp: 7
+    be: {}                            # best effort
+    qbv:
+      offset: 0ms
+      durations: [2ms, 0s]           # always open

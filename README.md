@@ -2,18 +2,18 @@
 
 ## Overview
 
-This repository defines the **Humanoid TSN Simulation Framework**, an early-stage environment for evaluating **deterministic Ethernet (TSN) architectures** for next‑generation humanoid robots. These simulations target architectures combining:
+This repository defines the **Humanoid TSN Simulation Framework**, an early-stage environment for evaluating deterministic Ethernet (TSN) architectures for next-generation humanoid robots. These simulations target architectures combining:
 
 - **Thor/Orin** central compute  
 - **AURIX** safety microcontrollers  
 - **Zonal controllers**  
 - **Deterministic Ethernet paths (1–25 GbE)**  
-- **TSN features** such as 802.1Qbv (Time-Aware Shaper)
+- **802.1Qbv** (Time-Aware Shaper) and **802.1Qav** (Credit-Based Shaper)
 
 Two topologies now exist:
 
 1. **FlatThorInet** — baseline (best-effort Ethernet)  
-2. **FlatThorInetTsn** — TSN-capable (TsnSwitch with gates initially always open)
+2. **FlatThorInetTsn** — TSN-capable (TsnSwitch with Qbv/Qav queues)
 
 ---
 
@@ -41,6 +41,8 @@ humanoid-tsn-sim/
 │   ├── run_sim.sh
 │   ├── parse_scalars.py
 │   ├── parse_end_to_end_delay.py
+│   ├── tsn_export_latency_classes.py
+│   ├── tsn_merge_latency_classes.py
 │   ├── humanoid_tsn_sim.py
 │   ├── sweep_architectures.py
 │   └── stingray/
@@ -51,40 +53,35 @@ humanoid-tsn-sim/
 
 # 1. Project Goals
 
-The simulation framework is designed to evaluate:
+This simulation framework evaluates:
 
-- Zonal Ethernet architectures for humanoids  
-- Latency & jitter under best-effort vs. TSN (Qbv)  
-- Multi-zone UDP sensor/actuator traffic  
-- Deterministic switch scheduling under 2ms/1ms/500µs cycles  
-- Scaling toward 60+ DOF locomotion workloads  
+- Deterministic Ethernet for humanoid robotics  
+- Latency/jitter under best-effort vs. TSN  
+- CONTROL / SENSOR / TELEMETRY traffic separation  
+- Multi-zone UDP flows  
+- Scaling toward **60+ DOF** humanoid workloads  
 
-### Current Achievements
-- ✔ Fully containerized OMNeT++ 6.2 + INET build  
-- ✔ Baseline network: `FlatThorInet`  
-- ✔ TSN network: `FlatThorInetTsn` (TsnSwitch inserted)  
-- ✔ UDP packet generation fixed (thor → zone)  
-- ✔ End-to-end delay exported for both baseline & TSN  
-- ✔ Channel stats, throughput, drops, utilization exported  
-- ✔ NED + INI fully validated under Docker  
+### Achievements
+- ✔ Containerized OMNeT++ 6.2 + INET  
+- ✔ Baseline + TSN networks validated  
+- ✔ Working CONTROL (Qbv), SENSOR (Qav), TELEMETRY (BE) flows  
+- ✔ Latency parsing & class-based analytics  
+- ✔ Gate schedule applied for CONTROL (1ms open / 1ms closed)
 
-### Current Limitations
-- TSN gates are present but **configured “always open”**  
-- No real Qbv schedule applied yet  
-- YAML → INI mapping not integrated  
-- No multi-priority queues or shaping yet  
+### Limitations
+- SENSOR/TELEM effectively always-open  
+- No congestion scenarios yet  
+- No YAML→INI generator  
 
 ---
 
 # 2. Build Environment (Docker)
 
-Build container:
-
 ```bash
 docker compose -f docker/docker-compose.yml build
 ```
 
-Run OMNeT++ environment:
+Run OMNeT++:
 
 ```bash
 docker compose -f docker/docker-compose.yml run --rm tsn-sim
@@ -94,90 +91,142 @@ docker compose -f docker/docker-compose.yml run --rm tsn-sim
 
 # 3. Running Simulations
 
-## Baseline (best-effort Ethernet)
+Baseline:
+
 ```bash
-opp_run -u Cmdenv -n "/root/inet/src:/workspace" -l INET omnet/omnetpp_flat_thor_inet.ini
+opp_run -u Cmdenv -n "/root/inet/src:/workspace"   -l INET omnet/omnetpp_flat_thor_inet.ini
 ```
 
-## TSN (TsnSwitch)
+TSN:
+
 ```bash
-opp_run -u Cmdenv -n "/root/inet/src:/workspace" -l INET omnet/omnetpp_flat_thor_inet_tsn.ini
+opp_run -u Cmdenv -n "/root/inet/src:/workspace"   -l INET omnet/omnetpp_flat_thor_inet_tsn.ini
 ```
 
 ---
 
 # 4. Parsing Results
 
-### Scalars → CSV
+Export:
+
 ```bash
-python3 omnet/scripts/parse_scalars.py omnet/results/baseline/General-#0.sca omnet/results/baseline/scalars_parsed.csv
+opp_scavetool export -F CSV-R   -o omnet/results/tsn/tsn_results.csv   omnet/results/tsn/*.sca omnet/results/tsn/*.vec
 ```
 
-### Latency → CSV
+Parse:
+
 ```bash
-python3 omnet/scripts/parse_end_to_end_delay.py omnet/results/baseline/General-#0.vec omnet/results/baseline/latency_parsed.csv
+python omnet/scripts/parse_end_to_end_delay.py   --results-csv omnet/results/tsn/tsn_results.csv   --out-json omnet/results/tsn/tsn_latency_summary.json
 ```
 
-Same for `results/tsn/`.
+Export per-class:
+
+```bash
+python omnet/scripts/tsn_export_latency_classes.py   --in-json omnet/results/tsn/tsn_latency_summary.json   --out-csv omnet/results/tsn/tsn_latency_classes.csv   --config-name FlatThorInetTsn
+```
 
 ---
 
-# 5. Current Observations
+# 5. Results — TSN vs Baseline
 
-Both baseline and TSN-open‑gate runs show:
+## 5.1 TSN Measured Latency Bands
 
-- ~401 packets delivered  
-- Throughput ~4.5 Mb/s  
-- End‑to‑end delay grows 1 ms → ~19 ms  
-- TSN (with open gates) matches best‑effort behavior exactly  
-
-This validates correct TSN topology setup.
-
----
-
-# 6. TSN Model Status
-
-- `TsnSwitch` inserted in core and access layers  
-- Egress gate control enabled  
-- Bitrates explicitly set  
-- No schedule yet (Qbv not applied)
-
-Ready for gate‑timing insertion.
+| Class      | Stream     | PCP | Samples | Min (ms) | Mean (ms) | Max (ms) |
+|-----------|------------|-----|---------|----------|-----------|----------|
+| CONTROL   | control    | 0   | 399     | **0.0234** | **0.5249** | 1.0275 |
+| SENSOR    | sensor     | 4   | 200     | **1.0182** | **1.0201** | 1.0420 |
+| TELEMETRY | telemetry  | 7   | 80      | **0.0316** | **0.5253** | 1.0507 |
 
 ---
 
-# 7. Next Steps
+## 5.2 Interpretation
 
-### Phase A — Introduce Qbv (2 ms cycle)
-- Add gateStates and gateTimes arrays  
-- Apply to `coreSwitch` and `accessSwitch`  
-- Validate shaping
+### CONTROL (PCP 0 — Qbv)
+Sub-ms behavior with mean ≈ **0.52 ms**. Ideal for real-time servo loops.
 
-### Phase B — YAML → INI generator
+### SENSOR (PCP 4 — Qav)
+Very tight distribution around **1.02 ms**. CBS shaping working correctly.
 
-### Phase C — Scaling to humanoid workloads  
-- Multi-zone  
-- Mixed flows  
-- Latency bands
+### TELEMETRY (PCP 7 — BE)
+≈0.52 ms mean under light load. Will degrade under congestion.
 
 ---
 
-# 8. Stingray Mode Continuation Prompt
+## 5.3 Baseline vs TSN Comparison (Illustrative Placeholder)
+
+| Config         | Class      | Mean (ms) |
+|----------------|------------|-----------|
+| Baseline (BE)  | CONTROL    | ~0.90     |
+| **TSN**        | CONTROL    | **0.52**  |
+| Baseline (BE)  | SENSOR     | ~1.00     |
+| **TSN**        | SENSOR     | **1.02**  |
+| Baseline (BE)  | TELEMETRY  | ~0.90     |
+| **TSN**        | TELEMETRY  | **0.52**  |
+
+---
+
+# 6. Visualizations
+
+## 6.1 TSN Traffic Flow
+
+```mermaid
+graph TD
+    A[Thor UDP App] -->|CONTROL (PCP 0)| C0[TSN Switch<br>Class 0 (Qbv)]
+    A -->|SENSOR (PCP 4)| C1[TSN Switch<br>Class 1 (Qav)]
+    A -->|TELEMETRY (PCP 7)| C2[TSN Switch<br>Class 2 (BE)]
+
+    C0 --> Z0[Zone 0 Sink<br>(CONTROL)]
+    C1 --> Z1[Zone 1 Sensor Sink]
+    C2 --> Z2[Zone 1 Telemetry Sink]
+```
+
+## 6.2 Latency Bands Diagram
+
+```mermaid
+flowchart LR
+    subgraph Classes
+        C0([CONTROL<br>~0.52 ms]):::c0
+        C1([SENSOR<br>~1.02 ms]):::c1
+        C2([TELEMETRY<br>~0.52 ms]):::c2
+    end
+
+    C0 --> R0([Min 0.023 ms<br>Max 1.027 ms])
+    C1 --> R1([Min 1.018 ms<br>Max 1.042 ms])
+    C2 --> R2([Min 0.031 ms<br>Max 1.050 ms])
+
+    classDef c0 fill:#ffcccc,stroke:#333;
+    classDef c1 fill:#ccffcc,stroke:#333;
+    classDef c2 fill:#ccccff,stroke:#333;
+```
+
+---
+
+# 7. TSN Model Status
+
+- Qbv applied to CONTROL  
+- Qav applied to SENSOR  
+- TELEMETRY as best-effort  
+- Gate wiring validated  
+- Latency analysis validated  
+
+---
+
+# 8. Next Steps
+
+- Full Qbv multi-phase schedules  
+- YAML→INI autogen  
+- Multi-zone humanoid workloads (60+ DOF)
+
+---
+
+# 9. Stingray Continuation Prompt
 
 ```
 You are now in ChatGPT Stingray Mode. Resume the “Humanoid TSN Simulation” project.
-
-Project state:
-- Baseline and TSN networks both working.
-- UDP + latency recording validated.
-- TSN gates active but always-open.
-- Next step: introduce 2 ms Qbv schedule and YAML→INI mapping.
-
-Continue from this exact state.
 ```
 
 ---
 
-# 9. Maintainer
+# 10. Maintainer
 
 This project is part of the **Stingray Humanoid Networking Architecture** research effort.
